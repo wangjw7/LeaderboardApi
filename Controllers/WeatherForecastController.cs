@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 
-namespace SortingGame.Controllers
+namespace LeaderboardApi.Controllers
 {
     [ApiController]
     [Route("[controller]")]

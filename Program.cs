@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http.Features;
-using SortingGame;
-using System.Runtime.InteropServices;
+using LeaderboardApi;
+using LeaderboardApi.Services;
+using LeaderboardApi.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -8,7 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 
-// note(wangjw): Record RequestId, TraceId for global API Errors handle.
+// note(wangjw): Record requestId, traceId for global API Errors handle.
 builder.Services.AddProblemDetails(options =>
 {
     options.CustomizeProblemDetails = context =>
@@ -22,6 +23,7 @@ builder.Services.AddProblemDetails(options =>
     };
 });
 
+builder.Services.AddScoped<ILeaderboardService, LeaderboardService>();
 builder.Services.AddExceptionHandler<ProblemExceptionHandler>();
 
 var app = builder.Build();
@@ -29,6 +31,8 @@ var app = builder.Build();
 app.UseExceptionHandler();
 
 // Configure the HTTP request pipeline.
+app.UseHttpsRedirection().UseCors(builder =>
+builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
 
 app.UseAuthorization();
 

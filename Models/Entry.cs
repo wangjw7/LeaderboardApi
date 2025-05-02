@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace SortingGame.Models
+namespace LeaderboardApi.Models
 {
     public class Entry
     {

@@ -1,4 +1,4 @@
-namespace SortingGame
+namespace LeaderboardApi
 {
     public class WeatherForecast
     {

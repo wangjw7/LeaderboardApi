@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 
-namespace SortingGame
+namespace LeaderboardApi
 {
     [Serializable]
     public class ProblemException : Exception

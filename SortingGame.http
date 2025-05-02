@@ -1,12 +1,12 @@
-@SortingGame_HostAddress = http://localhost:5000
+@SortingGame_HostAddress = http://localhost:5010
 
 GET {{SortingGame_HostAddress}}/weatherforecast/
 Accept: application/json
 ###
-POST {{SortingGame_HostAddress}}/customer/321/score/100.2/
+POST {{SortingGame_HostAddress}}/customer/234/score/10.2
 Accept: application/json
 ###
-GET {{SortingGame_HostAddress}}/leaderboard?start=0&end=6
+GET {{SortingGame_HostAddress}}/leaderboard?start=1&end=1
 Accept: application/json
 ###
 GET {{SortingGame_HostAddress}}/leaderboard/44?low=1
