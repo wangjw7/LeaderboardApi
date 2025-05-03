@@ -58,7 +58,7 @@ namespace LeaderboardApi.Controllers
 
             await Task.Run(() =>
             {
-                list = _leaderboardService.();
+                list = _leaderboardService.GetCustomerByCustomerID(customerid, high, low);
             });
             if (list == null)
                 throw new ProblemException("Leaderboard has not initialize yet.", "Uninitialilze issue");
