@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using LeaderboardApi.Models;
 using LeaderboardApi.Interfaces;
+using Microsoft.AspNetCore.Authorization.Infrastructure;
 
 namespace LeaderboardApi.Controllers
 {
@@ -57,7 +58,7 @@ namespace LeaderboardApi.Controllers
 
             await Task.Run(() =>
             {
-                list = _leaderboardService.GetCustomerByCustomerID(customerid, high, low);
+                list = _leaderboardService.();
             });
             if (list == null)
                 throw new ProblemException("Leaderboard has not initialize yet.", "Uninitialilze issue");
