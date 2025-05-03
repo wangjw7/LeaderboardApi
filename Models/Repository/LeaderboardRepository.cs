@@ -32,7 +32,7 @@ public static class LeaderboardRepository
 
     public static decimal Update(Entry newEntry)
     {
-        // note(wangjw): using dictionary implement for Leaderboard data
+        // note(wangjw): using dictionary for Leaderboard data save
         // score-descending order sorting.
         if (_leaderboard == null)
         {
