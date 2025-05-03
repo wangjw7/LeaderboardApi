@@ -15,8 +15,10 @@ export const options = {
 export default () => {
     var high = Math.floor(Math.random() * 3);
     var low = Math.floor(Math.random() * 20);
-    const url = 'http://localhost:5010/959?high=' + high + '&low=' + low;
+    const url = 'http://localhost:5010/73683?high=' + high + '&low=' + low;
     var res = http.get(url);
     check(res, { 'is status 200': (r) => r.status === 200 });
+    console.log(res.status_text);
+    console.log(res.body);
     sleep(1);
 };

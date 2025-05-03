@@ -22,7 +22,7 @@ public static class LeaderboardRepository
     {
         if (_leaderboard != null)
         {
-            return [.._leaderboard.Values];
+            return _leaderboardList;
         }
         else
         {
@@ -40,12 +40,14 @@ public static class LeaderboardRepository
             newEntry.Rank = 1;
 
             // TODO(wangjw): hash collision.
-            _leaderboard.AddOrUpdate(newEntry.CustomerID, newEntry, (i, NewEntry) => NewEntry);
+            var addIsSucceeded = _leaderboard.TryAdd(newEntry.CustomerID, newEntry);
+            if (!addIsSucceeded)
+                throw new ProblemException("Add data failure.", "Fatal error.");
 
             // TODO(wangjw): ToList() Performance benchmark.
             _leaderboardList = [.. _leaderboard.Values];
-
-            return newEntry.Score;
+            var result = newEntry.Score;
+            return result;
         }
         else
         {
@@ -54,37 +56,36 @@ public static class LeaderboardRepository
             if (_leaderboard.TryGetValue(newEntry.CustomerID, out Entry? entry))
             {
                 entry.Score += newEntry.Score;
+                if (entry.Score > 1000 || entry.Score < -1000)
+                    throw new ProblemException("Score > 1000 or score < -1000 after updated.", "Unexpected score.");
             }
             else
             {
-                _leaderboard.AddOrUpdate(newEntry.CustomerID, newEntry, (i, NewEntry) => NewEntry);
+                var addIsSucceeded = _leaderboard.TryAdd(newEntry.CustomerID, newEntry);
+                if (!addIsSucceeded)
+                    throw new ProblemException("Add data failure.", "Fatal error.");
             }
 
             _leaderboardList = [.. _leaderboard.Values.OrderByDescending(x => x.Score).ThenBy(x => x.CustomerID)];
-            
-            var sc = new ScoreCompare();
 
             // note(wangjw): search the index of the added or updated entry for rank sorting. 
             int ret;
             decimal result = 0;
+
             if (entry == null)
             {
-                ret = _leaderboardList.BinarySearch(newEntry, sc);
+                ret = BinarySearchForRepeatElement(_leaderboardList, newEntry);
                 result = newEntry.Score;
             }
             else
             {
-                ret = _leaderboardList.BinarySearch(entry, sc);
+                ret = BinarySearchForRepeatElement(_leaderboardList, entry);
                 result = entry.Score;
             }
-
             // note(wangjw): ~0 = -1. update rank.
             if (ret < 0)
             {
-                for (var i = ~ret; i < _leaderboardList.Count; i++)
-                {
-                    _leaderboardList[i].Rank = i + 1;
-                }
+                throw new ProblemException("Add data failure.", "Fatal error.");
             }
             else
             {
@@ -109,7 +110,8 @@ public static class LeaderboardRepository
         if (count + startIndex > _leaderboardList?.Count)
             throw new ProblemException("Request list length great than Leaderboard data.", "Data access violation");
 
-        return _leaderboardList?.GetRange(startIndex, count);
+        var result = _leaderboardList?.GetRange(startIndex, count);
+        return result;
     }
 
     public static List<Entry>? GetCustomerByCustomerID(Int64 customerid, int high = 0, int low = 0)
@@ -119,31 +121,81 @@ public static class LeaderboardRepository
         if (_leaderboard == null)
             return null;
 
-        if(!_leaderboard.TryGetValue(customerid, out Entry? value))
-            throw new ProblemException($"No data found with id:{customerid}.", "ID error");
+        if (!_leaderboard.TryGetValue(customerid, out Entry? value))
+            throw new ProblemException($"No data found with id:{customerid}.", "ID valid");
 
         rank = value.Rank;
+        var start = rank - high;
+        var end = rank + low;
 
-        if (rank - low < 0 || rank + high > _leaderboard.Count)
+        if (start < 0 || end > _leaderboard.Count)
             throw new ProblemException("Request list length great than Leaderboard data.", "Data access violation");
 
-        var result = GetCustomerByRank(rank - low, rank + high);
+        var result = GetCustomerByRank(start, end);
         return result;
     }
-}
 
-public class ScoreCompare : IComparer<Entry>
-{
-    public int Compare(Entry? x, Entry? y)
+    private static int BinarySearchForRepeatElement(List<Entry> source, Entry entry)
     {
-        try
+        int low = 0, high = source.Count - 1;
+        while (low <= high)
         {
-            return x.Score.CompareTo(y.Score);
-        }
-        catch (Exception)
-        {
+            int mid = (low + high) / 2;
 
-            throw;
+            // note(wangjw): if get the same score, assuming the index is on the random location of the same score
+            // scale.
+            if (source[mid].Score.Equals(entry.Score))
+            {
+                // note(wangjw): left search
+                if (mid > 0)
+                {
+                    if (source[mid - 1].Score.Equals(entry.Score))
+                    {
+                        for (int i = mid - 1; i >= 0; i--)
+                        {
+                            if (source[i].Score.Equals(entry.Score) && source[i].CustomerID == entry.CustomerID)
+                            {
+                                return i;
+                            }
+                            else if(!source[i].Score.Equals(entry.Score))
+                                break;
+                        }
+                    }
+                }
+
+                if (source[mid].CustomerID == entry.CustomerID)
+                {
+                    return mid;
+                }
+
+                // note(wangjw): right search
+                if (mid < high)
+                {
+                    if (source[mid + 1].Score.Equals(entry.Score))
+                    {
+                        for (int i = mid + 1; i <= high; i++)
+                        {
+                            if (source[i].Score.Equals(entry.Score) && source[i].CustomerID == entry.CustomerID)
+                            {
+                                return i;
+                            }
+                            else if (!source[i].Score.Equals(entry.Score))
+                                throw new ProblemException("Cant find specific data in the list.", "Fatal error");
+                        }
+                    }
+                }
+            }
+
+            // note(wangjw): regular binarysearch but descending.
+            else if (entry.Score < source[mid].Score)
+            {
+                low = mid + 1;
+            }
+            else
+            {
+                high = mid - 1;
+            }
         }
+        return -1;
     }
-}
+}   

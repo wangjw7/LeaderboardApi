@@ -6,7 +6,7 @@ namespace LeaderboardApi.Services;
 public class LeaderboardService : ILeaderboardService
 {
     private readonly RequestQueue<Entry> _addUpdateQueue;
-    private readonly ReaderWriterLockSlim _lock = new();
+    private readonly ReaderWriterLockSlim _lock = new(0);
 
     public LeaderboardService()
     {

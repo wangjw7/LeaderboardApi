@@ -3,11 +3,11 @@
 GET {{SortingGame_HostAddress}}/weatherforecast/
 Accept: application/json
 ###
-POST {{SortingGame_HostAddress}}/customer/234/score/10.2
+POST {{SortingGame_HostAddress}}/customer/35554/score/0.2
 Accept: application/json
 ###
 GET {{SortingGame_HostAddress}}/leaderboard?start=1&end=1
 Accept: application/json
 ###
-GET {{SortingGame_HostAddress}}/44?low=1
+GET {{SortingGame_HostAddress}}/74724?low=1&high=2
 Accept: application/json
