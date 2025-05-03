@@ -1,56 +1,45 @@
 ﻿using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 
-namespace LeaderboardApi
+namespace LeaderboardApi;
+
+[Serializable]
+public class ProblemException(string message, string error) : Exception
 {
-    [Serializable]
-    public class ProblemException : Exception
+    public string Message { get; set; } = message;
+
+    public string Error { get; set; } = error;
+}
+
+public class ProblemExceptionHandler(IProblemDetailsService problemDetailsService) : IExceptionHandler
+{
+    private readonly IProblemDetailsService _problemDetailsService = problemDetailsService;
+
+    // note(wangjw): Custom exception-handling
+    public async ValueTask<bool> TryHandleAsync(
+        HttpContext httpContext,
+        Exception exception,
+        CancellationToken cancellationToken)
     {
-        public string Message { get; set; }
 
-        public string Error { get; set; }
-        public ProblemException(string message, string error)
+        if (exception is not ProblemException problemException)
         {
-            Error = error;
-            Message = message;
+            return true;
         }
-    }
-
-    public class ProblemExceptionHandler : IExceptionHandler
-    { 
-        private readonly IProblemDetailsService _problemDetailsService;
-
-        public ProblemExceptionHandler(IProblemDetailsService problemDetailsService)
+        var ProblemDetail = new ProblemDetails
         {
-            _problemDetailsService = problemDetailsService;
-        }
+            Status = StatusCodes.Status400BadRequest,
+            Title = problemException.Error,
+            Detail = problemException.Message,
+            Type = "Bad Request"
+        };
 
-        // note(wangjw): Custom exception-handling logic
-        public async ValueTask<bool> TryHandleAsync(
-            HttpContext HttpContext, 
-            Exception Exception, 
-            CancellationToken CancellationToken)
+        httpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
+        return await _problemDetailsService.TryWriteAsync(new ProblemDetailsContext
         {
-            if (Exception is not ProblemException problemException)
-            {
-                return true;
-            }
-
-            var ProblemDetail = new ProblemDetails
-            {
-                Status = StatusCodes.Status400BadRequest,
-                Title = problemException.Error,
-                Detail = problemException.Message,
-                Type = "Bad Request"
-            };
-
-            HttpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
-            return await _problemDetailsService.TryWriteAsync(
-                new ProblemDetailsContext
-                { 
-                    HttpContext = HttpContext,
-                    ProblemDetails = ProblemDetail
-                });
-        }
+            HttpContext = httpContext,
+            ProblemDetails = ProblemDetail
+        });
     }
 }
+

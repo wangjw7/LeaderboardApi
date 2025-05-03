@@ -1,5 +1,4 @@
 ﻿using System.Collections.Concurrent;
-
 namespace LeaderboardApi.Models.Repository;
 
 public static class LeaderboardRepository
@@ -7,11 +6,23 @@ public static class LeaderboardRepository
     private static ConcurrentDictionary<Int64, Entry>? _leaderboard;
     private static List<Entry>? _leaderboardList;
 
-    public static Entry GetEntry(Int64 Key)
+    public static Entry? GetEntryByID(Int64 Key)
     {
         if (_leaderboard != null)
         {
             return _leaderboard[Key];
+        }
+        else
+        {
+            return null;
+        }
+    }
+
+    public static List<Entry>? GetAll()
+    {
+        if (_leaderboard != null)
+        {
+            return [.._leaderboard.Values];
         }
         else
         {
@@ -27,87 +38,112 @@ public static class LeaderboardRepository
         {
             _leaderboard = new ConcurrentDictionary<Int64, Entry>();
             newEntry.Rank = 1;
+
+            // TODO(wangjw): hash collision.
             _leaderboard.AddOrUpdate(newEntry.CustomerID, newEntry, (i, NewEntry) => NewEntry);
 
-            // TODO(wangjw): ToList() Performance check.
-            _leaderboardList = _leaderboard.Values.ToList();
+            // TODO(wangjw): ToList() Performance benchmark.
+            _leaderboardList = [.. _leaderboard.Values];
 
             return newEntry.Score;
         }
         else
         {
-            // note(wangjw): every time after update or add entry to the Leaderboard, ensure this 
+            // note(wangjw): every time after update or add entry to the Leaderboard, check this 
             // dictionary is sorted by score and by id for same score.
-            if (_leaderboard.ContainsKey(newEntry.CustomerID))
+            if (_leaderboard.TryGetValue(newEntry.CustomerID, out Entry? entry))
             {
-                _leaderboard[newEntry.CustomerID].Score = newEntry.Score;
+                entry.Score += newEntry.Score;
             }
             else
             {
                 _leaderboard.AddOrUpdate(newEntry.CustomerID, newEntry, (i, NewEntry) => NewEntry);
             }
 
-            _leaderboard.OrderBy(x => x.Value.Score).ThenBy(x => x.Key);
+            _leaderboardList = [.. _leaderboard.Values.OrderByDescending(x => x.Score).ThenBy(x => x.CustomerID)];
+            
+            var sc = new ScoreCompare();
 
-            // TODO(wangjw): ToList() Performance check.
-            _leaderboardList = _leaderboard.Values.ToList();
-
-            // solution 1.
-            var cc = new CustomerIdCompare();
-            int ret = _leaderboardList.BinarySearch(newEntry, cc);
-
-            //for (int i = ret; i < LeaderboardList.Count(); i++)
-            //{
-            //    LeaderboardList[i].Rank = i;
-            //}
-            //return NewEntry.Score;
-            // solution 2.
-            Parallel.For(ret, _leaderboardList.Count(), i =>
+            // note(wangjw): search the index of the added or updated entry for rank sorting. 
+            int ret;
+            decimal result = 0;
+            if (entry == null)
             {
-                _leaderboardList[i].Rank = i + 1;
-            });
-            return newEntry.Score;
+                ret = _leaderboardList.BinarySearch(newEntry, sc);
+                result = newEntry.Score;
+            }
+            else
+            {
+                ret = _leaderboardList.BinarySearch(entry, sc);
+                result = entry.Score;
+            }
+
+            // note(wangjw): ~0 = -1. update rank.
+            if (ret < 0)
+            {
+                for (var i = ~ret; i < _leaderboardList.Count; i++)
+                {
+                    _leaderboardList[i].Rank = i + 1;
+                }
+            }
+            else
+            {
+                for (var i = ret; i < _leaderboardList.Count; i++)
+                {
+                    _leaderboardList[i].Rank = i + 1;
+                }
+            }
+
+            return result;
         }
     }
 
     public static List<Entry>? GetCustomerByRank(int start, int end)
     {
-        if (_leaderboardList == null)
+        if (_leaderboard == null)
             throw new ProblemException("No data in LeaderboardList.", "No data");
 
-        if (end - start < 0)
+        var startIndex = start - 1;
+        var count = end - start + 1;
 
-            throw new ProblemException("End rank less than start rank.", "Invalid parameter value");
+        if (count + startIndex > _leaderboardList?.Count)
+            throw new ProblemException("Request list length great than Leaderboard data.", "Data access violation");
 
-        if (end - start >= _leaderboardList.Count())
-
-            throw new ProblemException("Request rank length great than Leaderboard data.", "Data access violation");
-
-        return _leaderboardList.GetRange(start - 1, end - start + 1);
+        return _leaderboardList?.GetRange(startIndex, count);
     }
 
     public static List<Entry>? GetCustomerByCustomerID(Int64 customerid, int high = 0, int low = 0)
     {
-        var cc = new CustomerIdCompare();
-        var entry = new Entry { CustomerID = customerid };
-        if (_leaderboardList == null)
+        int rank;
+
+        if (_leaderboard == null)
             return null;
-        int ret = _leaderboardList.BinarySearch(entry, cc);
-        var list = _leaderboardList?.GetRange(ret - low, ret + high);
-        return list;
+
+        if(!_leaderboard.TryGetValue(customerid, out Entry? value))
+            throw new ProblemException($"No data found with id:{customerid}.", "ID error");
+
+        rank = value.Rank;
+
+        if (rank - low < 0 || rank + high > _leaderboard.Count)
+            throw new ProblemException("Request list length great than Leaderboard data.", "Data access violation");
+
+        var result = GetCustomerByRank(rank - low, rank + high);
+        return result;
     }
 }
-public class CustomerIdCompare : IComparer<Entry>
-{
-    public int Compare(Entry? x, Entry? y)
-    {
-        return x.CustomerID.CompareTo(y.CustomerID);
-    }
-}
+
 public class ScoreCompare : IComparer<Entry>
 {
     public int Compare(Entry? x, Entry? y)
     {
-        return x.Score.CompareTo(y.Score);
+        try
+        {
+            return x.Score.CompareTo(y.Score);
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
     }
 }

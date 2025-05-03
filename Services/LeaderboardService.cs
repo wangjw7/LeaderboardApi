@@ -6,33 +6,32 @@ namespace LeaderboardApi.Services;
 public class LeaderboardService : ILeaderboardService
 {
     private readonly RequestQueue<Entry> _addUpdateQueue;
-    private readonly ReaderWriterLockSlim _lock = new ReaderWriterLockSlim();
-    private bool _isProcessing;
+    private readonly ReaderWriterLockSlim _lock = new();
 
     public LeaderboardService()
     {
         _addUpdateQueue = new RequestQueue<Entry>();
     }
 
-    public void EnqueueEntry(Entry entry)
+    public async Task<decimal?> EnqueueEntry(Entry entry)
     {
         _addUpdateQueue.EnterQueue(entry);
-        if (!_isProcessing)
-        {
-            _isProcessing = true;
-            Task.Run(ProcessUpdateQueueAsync);
-        }
+        var result = await Task.Run(ProcessUpdateQueueAsync);
+        return result;
     }
 
-    public async Task<decimal?> ProcessUpdateQueueAsync()
+    private async Task<decimal?> ProcessUpdateQueueAsync()
     {
         while (_addUpdateQueue.Count() > 0)
         {
-            var entry = await _addUpdateQueue.DeQueueAsync(CancellationToken.None);
+            var entry = await _addUpdateQueue.DeQueueAsync(CancellationToken.None)
+                ?? throw new ProblemException("DeQueue return null entry.", "Unexpected null return");
+
             _lock.EnterWriteLock();
             try
             {
                 var result = LeaderboardRepository.Update(entry);
+
                 return result;
             }
             finally
@@ -40,15 +39,25 @@ public class LeaderboardService : ILeaderboardService
                 _lock.ExitWriteLock();
             }
         }
-        _isProcessing = false;
         return null;
     }
 
-    public List<Entry> GetCustomerByRank(int start, int end)
+    public List<Entry>? GetAll()
+    {
+        return LeaderboardRepository.GetAll();
+    }
+
+    public Entry? GetEntryById(Int64 customerid)
+    { 
+        return LeaderboardRepository.GetEntryByID(customerid);
+    }
+
+    public List<Entry>? GetCustomerByRank(int start, int end)
     {
         return LeaderboardRepository.GetCustomerByRank(start, end);
     }
-    public List<Entry> GetCustomerByCustomerID(Int64 customerid, int high = 0, int low = 0)
+
+    public List<Entry>? GetCustomerByCustomerID(Int64 customerid, int high = 0, int low = 0)
     {
         return LeaderboardRepository.GetCustomerByCustomerID(customerid, high, low);
     }

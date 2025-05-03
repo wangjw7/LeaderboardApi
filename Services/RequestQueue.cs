@@ -1,12 +1,11 @@
 using LeaderboardApi.Models;
 using System.Collections.Concurrent;
-
 namespace LeaderboardApi.Services;
 
 public class RequestQueue<Entry>
 {
-    private readonly ConcurrentQueue<Entry> _queue = new ConcurrentQueue<Entry>();
-    private readonly SemaphoreSlim _semaphore= new SemaphoreSlim(0);
+    private readonly ConcurrentQueue<Entry> _queue = new();
+    private readonly SemaphoreSlim _semaphore= new(0);
 
     public void EnterQueue(Entry entry)
     {
@@ -22,6 +21,6 @@ public class RequestQueue<Entry>
     }
     public int Count()
     { 
-        return _queue.Count();
+        return _queue.Count;
     }
 }
